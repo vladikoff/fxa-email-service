@@ -76,14 +76,14 @@ impl From<BounceError> for Failure {
 
 pub struct Bounces<'a> {
     db: Box<&'a Db>,
-    limits: &'a BounceLimits,
+    limits: BounceLimits,
 }
 
 impl<'a> Bounces<'a> {
     pub fn new(settings: &'a Settings, db: Box<&'a Db>) -> Bounces<'a> {
         Bounces {
             db,
-            limits: &settings.bouncelimits,
+            limits: settings.bouncelimits.clone(),
         }
     }
 

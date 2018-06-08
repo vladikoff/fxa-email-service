@@ -12,6 +12,9 @@ use deserialize;
 use providers::Providers;
 use validate;
 
+use settings::Settings;
+use auth_db::DbClient;
+
 #[cfg(test)]
 mod test;
 
@@ -75,8 +78,10 @@ fn fail() -> data::Outcome<Email, ()> {
 
 #[post("/send", format = "application/json", data = "<email>")]
 fn handler(email: Email,
-           bounces: State<Bounces>, 
-           providers: State<Providers>) -> Result<Json<Value>, Failure> {
+           _settings: State<&Settings>,
+           _db: State<&DbClient>,
+           bounces: State<&Bounces>, 
+           providers: State<&Providers>) -> Result<Json<Value>, Failure> {
     let to = email.to.as_ref();
     bounces.check(to)?;
 

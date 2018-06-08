@@ -36,17 +36,24 @@ mod send;
 mod settings;
 mod validate;
 
+lazy_static! {
+    static ref SETTINGS: settings::Settings = settings::Settings::new().expect("config error");
+    static ref DB: auth_db::DbClient = auth_db::DbClient::new(&SETTINGS);
+    static ref BOUNCES: bounces::Bounces<'static> = bounces::Bounces::new(&SETTINGS, Box::new(&*DB));
+    static ref PROVIDERS: providers::Providers<'static> = providers::Providers::new(&SETTINGS);
+}
+
 fn main() {
-    let config = settings::Settings::new().expect("Config error.");
-    let db = auth_db::DbClient::new(&config);
-    let bounces = bounces::Bounces::new(&config, Box::new(&db));
-    let providers = providers::Providers::new(&config);
+    // let config = settings::Settings::new().expect("Config error.");
+    // let db = auth_db::DbClient::new(&config);
+    // let bounces = bounces::Bounces::new(&config, Box::new(&db));
+    // let providers = providers::Providers::new(&config);
 
     rocket::ignite()
-        .manage(config)
-        .manage(db)
-        .manage(bounces)
-        .manage(providers)
+        .manage(&SETTINGS)
+        .manage(&DB)
+        .manage(&BOUNCES)
+        .manage(&PROVIDERS)
         .mount("/", routes![send::handler])
         .catch(errors![
             app_errors::bad_request,
