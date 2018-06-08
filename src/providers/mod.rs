@@ -97,3 +97,5 @@ impl<'s> Providers<'s> {
 }
 
 unsafe impl<'s> Sync for Providers<'s> {}
+
+unsafe impl<'s> Send for Providers<'s> {}
