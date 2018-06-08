@@ -9,9 +9,11 @@
 #![plugin(rocket_codegen)]
 
 extern crate config;
+extern crate failure;
 extern crate hex;
 #[macro_use]
 extern crate lazy_static;
+extern crate mozsvc_common;
 extern crate regex;
 extern crate reqwest;
 extern crate rocket;
@@ -25,19 +27,30 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+#[macro_use(
+    slog_o, slog_info, slog_kv, slog_log, slog_record, slog_b, slog_record_static, slog_error
+)]
+extern crate slog;
+extern crate slog_async;
+extern crate slog_mozlog_json;
+extern crate slog_term;
 
 mod app_errors;
 mod auth_db;
 mod bounces;
 mod deserialize;
 mod duration;
+mod logging;
 mod providers;
 mod send;
 mod settings;
 mod validate;
 
 fn main() {
+    let config = settings::Settings::new().expect("Config error.");
+    let logger = logging::MozlogLogger::new(&config).expect("MozlogLogger init error.");
     rocket::ignite()
+        .manage(logger)
         .mount("/", routes![send::handler])
         .catch(errors![
             app_errors::bad_request,
@@ -47,5 +60,21 @@ fn main() {
             app_errors::too_many_requests,
             app_errors::internal_server_error
         ])
+        .attach(rocket::fairing::AdHoc::on_request(|request, _| {
+            let log = logging::MozlogLogger::with_request(request)
+                .expect("MozlogLogger init with request error.");
+            slog_info!(log, "{}", "Request started.");
+        }))
+        .attach(rocket::fairing::AdHoc::on_response(|request, response| {
+            let log = logging::MozlogLogger::with_request(request)
+                .expect("MozlogLogger init with request error.");
+            if response.status().code == 200 {
+                slog_info!(log, "{}", "Request finished succesfully."; 
+                    "status_code" => response.status().code, "status_msg" => response.status().reason);
+            } else {
+                slog_error!(log, "{}", "Request errored."; 
+                    "status_code" => response.status().code, "status_msg" => response.status().reason);
+            }
+        }))
         .launch();
 }
